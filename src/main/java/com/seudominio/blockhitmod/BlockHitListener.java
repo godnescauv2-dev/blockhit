@@ -1,9 +1,9 @@
 package com.seudominio.blockhitmod;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.EntityPlayerSP;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent.ClientTickEvent;
@@ -16,22 +16,21 @@ public class BlockHitListener {
     // CONFIGURAÇÕES
     // =========================================================
 
-    // Distância máxima para considerar o alvo
+    // Alcance máximo usado apenas para validar o alvo
     private static final double RANGE = 4.5D;
 
-    // Tempo segurando block antes de dar o hit
-    // 50 ms = aproximadamente 1 tick
+    // Tempo segurando o block antes do ataque
     private static final long BLOCK_DURATION = 60L;
 
     // Tempo que o W fica solto durante o W-Tap
     private static final long WTAP_DURATION = 40L;
 
-    // true  = W-Tap no primeiro hit
-    // false = começa sem W-Tap
+    // true  = primeiro hit recebe W-Tap
+    // false = primeiro hit não recebe W-Tap
     private static final boolean START_WITH_WTAP = true;
 
     // =========================================================
-    // ESTADO DO BLOCKHIT
+    // BLOCKHIT
     // =========================================================
 
     private boolean blocking = false;
@@ -42,15 +41,13 @@ public class BlockHitListener {
     private Entity target = null;
 
     // =========================================================
-    // ESTADO DO W-TAP
+    // W-TAP
     // =========================================================
 
     private boolean wTapping = false;
     private long wTapStartTime = 0L;
 
-    // Alternância:
-    // true  = próximo hit recebe W-Tap
-    // false = próximo hit não recebe W-Tap
+    // 1 sim / 1 não
     private boolean nextHitWTap = START_WITH_WTAP;
 
     // =========================================================
@@ -60,16 +57,18 @@ public class BlockHitListener {
     @SubscribeEvent
     public void onTick(ClientTickEvent event) {
 
-        if (event.phase != TickEvent.Phase.END)
+        if (event.phase != TickEvent.Phase.END) {
             return;
+        }
 
-        if (mc.thePlayer == null || mc.theWorld == null)
+        if (mc.thePlayer == null || mc.theWorld == null) {
             return;
+        }
 
         EntityPlayerSP player = mc.thePlayer;
 
         // =====================================================
-        // PROCESSA W-TAP
+        // W-TAP EM ANDAMENTO
         // =====================================================
 
         if (wTapping) {
@@ -80,8 +79,8 @@ public class BlockHitListener {
             if (elapsed >= WTAP_DURATION) {
 
                 /*
-                 * Só pressiona W novamente se o jogador
-                 * ainda estiver segurando W fisicamente.
+                 * Só restaura W se o jogador ainda estiver
+                 * segurando a tecla fisicamente.
                  */
                 if (mc.gameSettings.keyBindForward.isKeyDown()) {
 
@@ -94,38 +93,30 @@ public class BlockHitListener {
                 wTapping = false;
             }
 
-            /*
-             * Enquanto o W-Tap está acontecendo,
-             * não inicia outro BlockHit.
-             */
             return;
         }
 
         // =====================================================
-        // ESTADO DAS TECLAS
+        // ESTADO DO ATAQUE
         // =====================================================
 
         boolean attackKeyDown =
                 mc.gameSettings.keyBindAttack.isKeyDown();
 
         // =====================================================
-        // DETECTA ALVO
+        // ATUALIZA ALVO
         // =====================================================
 
         updateTarget(player);
 
         // =====================================================
-        // SEM ATAQUE / SEM ALVO
+        // SEM ATAQUE OU SEM ALVO
         // =====================================================
 
         if (!attackKeyDown || target == null) {
 
             stopBlocking();
 
-            /*
-             * Quando o botão de ataque é solto,
-             * libera o próximo ciclo.
-             */
             if (!attackKeyDown) {
                 attackHappened = false;
             }
@@ -145,7 +136,7 @@ public class BlockHitListener {
         }
 
         // =====================================================
-        // VERIFICA TEMPO DO BLOCK
+        // VERIFICA DURAÇÃO DO BLOCK
         // =====================================================
 
         if (blocking) {
@@ -161,7 +152,7 @@ public class BlockHitListener {
     }
 
     // =========================================================
-    // ATUALIZA O ALVO
+    // DETECTA ALVO
     // =========================================================
 
     private void updateTarget(EntityPlayerSP player) {
@@ -192,7 +183,7 @@ public class BlockHitListener {
     }
 
     // =========================================================
-    // COMEÇA BLOCK
+    // COMEÇA O BLOCK
     // =========================================================
 
     private void startBlocking() {
@@ -209,13 +200,14 @@ public class BlockHitListener {
     }
 
     // =========================================================
-    // PARA BLOCK
+    // PARA O BLOCK
     // =========================================================
 
     private void stopBlocking() {
 
-        if (!blocking)
+        if (!blocking) {
             return;
+        }
 
         KeyBinding.setKeyBindState(
                 mc.gameSettings.keyBindUseItem.getKeyCode(),
@@ -226,7 +218,7 @@ public class BlockHitListener {
     }
 
     // =========================================================
-    // EXECUTA HIT
+    // EXECUTA O HIT
     // =========================================================
 
     private void executeHit(EntityPlayerSP player) {
@@ -234,20 +226,18 @@ public class BlockHitListener {
         // Primeiro solta o block
         stopBlocking();
 
-        // Atualiza o alvo antes do ataque
+        // Atualiza o alvo novamente
         updateTarget(player);
 
-        if (target == null)
+        if (target == null) {
             return;
+        }
 
-        /*
-         * Guarda se este hit deve receber W-Tap
-         * ANTES de alternar para o próximo.
-         */
+        // Guarda o estado atual do W-Tap
         boolean doWTap = nextHitWTap;
 
         // =====================================================
-        // HIT
+        // ATAQUE
         // =====================================================
 
         player.attackTargetEntityWithCurrentItem(target);
@@ -264,7 +254,7 @@ public class BlockHitListener {
         }
 
         // =====================================================
-        // ALTERNÂNCIA 1 SIM / 1 NÃO
+        // ALTERNÂNCIA
         // =====================================================
 
         nextHitWTap = !nextHitWTap;
@@ -277,7 +267,7 @@ public class BlockHitListener {
     private void performWTap(EntityPlayerSP player) {
 
         /*
-         * Reset do sprint diretamente no jogador.
+         * Reseta o sprint do jogador.
          */
         player.setSprinting(false);
 
@@ -290,7 +280,7 @@ public class BlockHitListener {
         );
 
         /*
-         * Inicia o intervalo do W-Tap.
+         * Começa o intervalo do W-Tap.
          */
         wTapping = true;
 
